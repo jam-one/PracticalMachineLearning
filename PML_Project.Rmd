@@ -1,0 +1,102 @@
+---
+title: "Practical Machine Learning Final Project"
+author: "Jam One"
+date: "Friday, February 05, 2016"
+output: html_document
+---
+<h1>Background</h1>
+
+<p>Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+Data</p>
+
+<p>The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv</p>
+
+<p>The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.</p>
+
+<h3>Load the required R packages</h3>
+```{r}
+library(caret)
+library(rattle)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(repmis)
+```
+
+<h3>Import the data files</h3>
+```{r}
+trainingDataUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testingDataUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+# Load the data and convert any fields with "NA", "#DIV/0!", or empty to NA
+trainingData <- read.csv(url(trainingDataUrl), na.strings = c("NA", "#DIV/0!", ""))
+dim(trainingData)
+testingData <- read.csv(url(testingDataUrl), na.strings = c("NA", "#DIV/0!", ""))
+dim(testingData)
+```
+<h3>Data scrubbing</h3>
+```{r}
+# Remove any columns that have "NA" in them
+trainingData <- trainingData[, colSums(is.na(trainingData)) == 0]
+dim(trainingData)
+testingData <- testingData[, colSums(is.na(testingData)) == 0]
+dim(testingData)
+# Remove the first 7 columns, as these variables have no apparent predictive power against the classe variable.
+# These variables are "X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", "cvtd_timestamp", "new_window" and "num_window"
+trainingData <- trainingData[, -c(1:7)]
+dim(trainingData)
+testingData <- testingData[, -c(1:7)]
+dim(testingData)
+```
+<h3>Data splitting</h3>
+```{r}
+# Data split the training data into 70% train and 30% validation
+# Set a seed for reproducibility
+set.seed(1234)
+inTrain <- createDataPartition(trainingData$classe,
+                               p = 0.7, list = FALSE)
+train <- trainingData[inTrain, ]
+dim(train)
+test <- trainingData[-inTrain, ]
+dim(test)
+```
+<h3>Predictive models</h3>
+Will compare the recursive partitioning classification tree method, with the random forest method
+```{r}
+# Classification tree using recursive partitioning, the rpart() method of the rpart package with 5-fold cross validation
+rpartModel <- train(classe ~ ., data = train, method = "rpart",
+                    trControl = trainControl(method = "cv", number = 5))
+print(rpartModel)
+# Predict outcomes using the test set
+rpartPred <- predict(rpartModel, test)
+# Show the prediction results using the confusionMatrix function
+(rpartCM <- confusionMatrix(test$classe, rpartPred))
+# Accuracy
+rpartCM$overall[1]
+# Random forest with 5-fold cross-validation
+rfModel <- train(classe ~ ., data = train, method = "rf",
+                 trControl = trainControl(method = "cv", number = 5))
+print(rfModel)
+# Predict outcomes using the test set
+rfPred <- predict(rfModel, test)
+# Show the prediction results using the confusionMatrix function
+(rfCM <- confusionMatrix(test$classe, rfPred))
+# Accuracy
+rfCM$overall[1]
+```
+
+The random forest posted an accuracy of 99%, and the recursive partitioning method had an accuracy of 49%.
+
+<h3>Final predictions</h3>
+Will use the random forest model against the testing data set for the final predictions of the classe variable.
+```{r}
+# Prediction on testingData data set
+predict(rfModel, testingData)
+```
+
+End of Practical Machine Learning final project.
